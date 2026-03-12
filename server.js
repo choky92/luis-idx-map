@@ -1,37 +1,43 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
-const app = express();
 
+const app = express();
 app.use(cors());
 
 const DATASET_ID = 'miamire';
-const SERVER_TOKEN = '59c3050021200f3ffcc9fb104589abba'; // ← YOUR REAL TOKEN
+const SERVER_TOKEN = '59c3050021200f3ffcc9fb104589abba'; 
+
+app.get('/', (req, res) => res.json({ status: 'Luis IDX Map - READY' }));
 
 app.get('/map-listings', async (req, res) => {
   try {
-    const bridgeUrl = `https://api.bridgedataoutput.com/api/v2/OData/${DATASET_ID}/Properties?$top=50&$filter=StandardStatus eq 'Active' and City eq 'Doral' and ListPrice ge 300000&access_token=${SERVER_TOKEN}`;
+    const url = `https://api.bridgedataoutput.com/api/v2/OData/${DATASET_ID}/Properties?$top=20&$filter=StandardStatus eq 'Active' and City eq 'Doral'&access_token=${SERVER_TOKEN}`;
     
-    const bridgeResponse = await fetch(bridgeUrl);
-    const data = await bridgeResponse.json();
+    const response = await fetch(url);
+    const data = await response.json();
     
-    const listings = data.value.map(property => ({
-      mlsId: property.ListingId,
-      lat: property.Latitude,
-      lng: property.Longitude,
-      address: property.UnparsedAddress,
-      city: property.City,
-      price: property.ListPrice,
-      beds: property.BedroomsTotal,
-      baths: property.BathroomsTotalInteger
-    })).filter(p => p.lat && p.lng);
-    
-    res.json(listings);
+    // Extract ONLY what map needs
+    const listings = (data.value || []).slice(0, 20).map(p => ({
+      mlsId: p.ListingId || p.ListingKeyNumeric,
+      lat: p.Latitude,
+      lng: p.Longitude,
+      address: [p.StreetNumber, p.StreetName, p.City].filter(Boolean).join(' '),
+      city: p.City || 'Miami',
+      price: p.ListPrice || p.CurrentPrice,
+      beds: p.BedroomsTotal,
+      baths: p.BathroomsTotalDecimal || p.BathroomsTotalInteger
+    })).filter(p => p.lat && p.lng && p.lat > 0); // Valid coordinates only
+
+    res.json({
+      success: true,
+      count: listings.length,
+      listings: listings
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch listings' });
+    res.status(500).json({ error: error.message });
   }
 });
 
-app.listen(3000, () => console.log('Server running'));
-
-// test
+const port = process.env.PORT || 3000;
+app.listen(port, '0.0.0.0', () => console.log('Luis IDX Map running'));
