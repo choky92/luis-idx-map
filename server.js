@@ -6,7 +6,7 @@ const app = express();
 app.use(cors());
 
 const DATASET_ID = 'miamire';
-const SERVER_TOKEN = '59c3050021200f3ffcc9fb104589abba';
+const SERVER_TOKEN = '59c3050021200f3ffcc9fb104589abba'; // ← YOUR REAL TOKEN
 
 app.get('/map-listings', async (req, res) => {
   try {
